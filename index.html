@@ -147,31 +147,42 @@ h2 { font-family: var(--display); font-weight: 700; font-size: 1.4rem; margin: 6
   const DAY_NAMES = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
   const MONTHS = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
 
-  function nextMonday() {
+  function nextSunday() {
     const d = new Date(); d.setHours(12,0,0,0);
-    const add = (8 - d.getDay()) % 7; d.setDate(d.getDate() + add);
+    const add = (7 - d.getDay()) % 7; d.setDate(d.getDate() + add);
     return iso(d);
   }
   function iso(d) { return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
   function parseISO(s) { const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d, 12); }
+  function sundayOf(s) { const d = parseISO(s); d.setDate(d.getDate() - d.getDay()); return iso(d); }
 
   const example = {
-    start: nextMonday(), title: "MENU & CHORES",
+    start: nextSunday(), title: "MENU & CHORES",
     note: "Trash goes out Tuesday night · Grocery run Saturday morning",
     days: [
+      { menu: "Roast chicken\nGreen beans", chores: "Change bed sheets\nPlan next week" },
       { menu: "Chicken tacos\nRice & beans", chores: "Wipe counters\nTake out trash" },
       { menu: "Spaghetti\nGarlic bread", chores: "Vacuum living room" },
       { menu: "Sheet-pan salmon\nRoast potatoes", chores: "Clean bathrooms" },
       { menu: "Leftovers", chores: "Laundry\nChange towels" },
       { menu: "Homemade pizza", chores: "Mop kitchen" },
-      { menu: "Chili\nCornbread", chores: "Dust shelves\nWater plants" },
-      { menu: "Roast chicken\nGreen beans", chores: "Change bed sheets\nPlan next week" }
+      { menu: "Chili\nCornbread", chores: "Dust shelves\nWater plants" }
     ]
   };
 
   let state;
   try { state = JSON.parse(localStorage.getItem(KEY)); } catch (e) { state = null; }
   if (!state || !Array.isArray(state.days) || state.days.length !== 7) state = JSON.parse(JSON.stringify(example));
+  if (!state.start) state.start = nextSunday();
+
+  // Weeks saved before they started on Sunday: keep each day's entries on the same weekday.
+  const savedDow = parseISO(state.start).getDay();
+  if (savedDow) {
+    const moved = [];
+    state.days.forEach((day, i) => { moved[(savedDow + i) % 7] = day; });
+    state.days = moved;
+    state.start = sundayOf(state.start);
+  }
 
   const $ = id => document.getElementById(id);
   const canvas = $("board"), ctx = canvas.getContext("2d");
@@ -180,7 +191,7 @@ h2 { font-family: var(--display); font-weight: 700; font-size: 1.4rem; margin: 6
   function persist() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
 
   function weekDates() {
-    const s = parseISO(state.start || nextMonday());
+    const s = parseISO(state.start);
     return Array.from({length: 7}, (_, i) => { const d = new Date(s); d.setDate(s.getDate() + i); return d; });
   }
   function rangeLabel(ds) {
@@ -373,7 +384,7 @@ h2 { font-family: var(--display); font-weight: 700; font-size: 1.4rem; margin: 6
   $("start").value = state.start;
   $("title").value = state.title || "";
   $("note").value = state.note || "";
-  $("start").addEventListener("change", e => { if (e.target.value) { state.start = e.target.value; buildDays(); changed(); } });
+  $("start").addEventListener("change", e => { if (e.target.value) { state.start = e.target.value = sundayOf(e.target.value); buildDays(); changed(); } });
   $("title").addEventListener("input", e => { state.title = e.target.value; changed(); });
   $("note").addEventListener("input", e => { state.note = e.target.value; changed(); });
 
