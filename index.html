@@ -52,12 +52,13 @@ header h1 {
 header p { margin: 6px 0 0; color: var(--muted); max-width: 62ch; }
 
 .screen {
+  width: 100%; max-width: 828px; justify-self: center;
   background: var(--bezel); border-radius: 14px; padding: 14px;
   box-shadow: 0 1px 0 rgba(255,255,255,.06) inset, 0 8px 24px rgba(0,0,0,.18);
 }
 .screen canvas {
   display: block; width: 100%; max-width: 100%; aspect-ratio: 800 / 480; height: auto;
-  background: #fff; border-radius: 2px; image-rendering: pixelated;
+  margin-inline: auto; background: #fff; border-radius: 2px;
 }
 .screen .spec {
   display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
@@ -74,6 +75,7 @@ button.primary { background: var(--accent); color: var(--accent-ink); border-col
 button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 .status { color: var(--muted); font-size: 14px; }
 .fallback { display: grid; gap: 8px; }
+.fallback[hidden] { display: none; }
 .fallback img { width: 100%; border: 1px solid var(--line); border-radius: 6px; background:#fff; }
 
 .settings {
@@ -220,13 +222,14 @@ h2 { font-family: var(--display); font-weight: 700; font-size: 1.4rem; margin: 6
     let line = "";
     for (const w of words) {
       const test = line ? line + " " + w : w;
-      if (ctx.measureText(test).width <= maxW || !line) {
-        if (!line && ctx.measureText(w).width > maxW) { // break a very long word
-          let part = "";
-          for (const ch of w) { if (ctx.measureText(part + ch).width > maxW && part) { out.push(part); part = ch; } else part += ch; }
-          line = part;
-        } else line = test;
-      } else { out.push(line); line = w; }
+      if (ctx.measureText(test).width <= maxW) { line = test; continue; }
+      if (line) out.push(line);
+      line = w;
+      if (ctx.measureText(w).width > maxW) { // break a very long word
+        let part = "";
+        for (const ch of w) { if (ctx.measureText(part + ch).width > maxW && part) { out.push(part); part = ch; } else part += ch; }
+        line = part;
+      }
     }
     if (line) out.push(line);
     return out;
@@ -240,14 +243,16 @@ h2 { font-family: var(--display); font-weight: 700; font-size: 1.4rem; margin: 6
     for (; size >= min; size--) {
       ctx.font = `${weight} ${size}px ${FONT_B}`;
       const lh = Math.round(size * 1.18), gap = Math.round(size * 0.45);
-      layout = []; let used = 0;
+      layout = []; let used = 0, wordsFit = true;
       items.forEach((it, idx) => {
         const lines = wrapLines(it, w - indent);
         layout.push({ lines, lh });
         used += lines.length * lh + (idx ? gap : 0);
+        // Prefer a smaller font over splitting a word; words only break at the minimum size.
+        if (it.split(/\s+/).some(word => ctx.measureText(word).width > w - indent)) wordsFit = false;
       });
       layout.gap = gap; layout.lh = lh;
-      if (used <= h) break;
+      if (used <= h && wordsFit) break;
     }
     size = Math.max(size, min);
     ctx.font = `${weight} ${size}px ${FONT_B}`;
@@ -347,6 +352,19 @@ h2 { font-family: var(--display); font-weight: 700; font-size: 1.4rem; margin: 6
     ctx.putImageData(img, 0, 0);
     $("weekLabel").textContent = "Week of " + rangeLabel(ds).toLowerCase().replace(/\b[a-z]{3}\b/g, m => m[0].toUpperCase() + m.slice(1));
   }
+
+  // Show the preview at a whole number of device pixels per image pixel so text stays sharp.
+  // Narrow screens can't fit that at a readable size, so they get a smooth fluid scale instead.
+  function fitPreview() {
+    const box = canvas.parentElement, pad = parseFloat(getComputedStyle(box).paddingLeft) * 2;
+    const avail = box.clientWidth - pad, dpr = window.devicePixelRatio || 1;
+    const n = Math.floor(avail * dpr / W), snapped = n * W / dpr;
+    const crisp = avail >= 600 && n >= 1 && snapped >= avail * 0.66;
+    canvas.style.width = crisp ? snapped + "px" : "";
+    canvas.style.imageRendering = crisp ? "pixelated" : "auto";
+  }
+  window.addEventListener("resize", fitPreview);
+  fitPreview();
 
   let t;
   function changed() { persist(); clearTimeout(t); t = setTimeout(draw, 60); $("fallback").hidden = true; }
