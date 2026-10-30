@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fridge Week Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@600;700&display=swap">
+<style>
+/* Layout: the e-paper screen sits on top like a fridge magnet; the week's inputs stack below as one card per day. */
+:root {
+  --bg: #eef1f3;
+  --surface: #ffffff;
+  --ink: #1b2329;
+  --muted: #5d6a74;
+  --line: #d3dade;
+  --accent: #2f5d8a;
+  --accent-ink: #ffffff;
+  --bezel: #2a3036;
+  --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14191d; --surface: #1d2429; --ink: #e6ebee; --muted: #9aa7b0;
+    --line: #313b42; --accent: #7fb0dc; --accent-ink: #0e1a24; --bezel: #0b0e10;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #14191d; --surface: #1d2429; --ink: #e6ebee; --muted: #9aa7b0;
+  --line: #313b42; --accent: #7fb0dc; --accent-ink: #0e1a24; --bezel: #0b0e10;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.45;
+}
+.wrap {
+  max-width: 960px; margin: 0 auto;
+  padding-block: 20px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 20px;
+}
+header h1 {
+  font-family: var(--display); font-weight: 700; font-size: 2rem; line-height: 1.05;
+  margin: 0; letter-spacing: 0.01em; text-wrap: balance;
+}
+header p { margin: 6px 0 0; color: var(--muted); max-width: 62ch; }
+
+.screen {
+  background: var(--bezel); border-radius: 14px; padding: 14px;
+  box-shadow: 0 1px 0 rgba(255,255,255,.06) inset, 0 8px 24px rgba(0,0,0,.18);
+}
+.screen canvas {
+  display: block; width: 100%; max-width: 100%; aspect-ratio: 800 / 480; height: auto;
+  background: #fff; border-radius: 2px; image-rendering: pixelated;
+}
+.screen .spec {
+  display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  margin-top: 10px; color: #9aa4ad; font-size: 12px; letter-spacing: .06em; text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+.actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+button {
+  font: inherit; font-weight: 700; border-radius: 10px; padding: 11px 18px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+}
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.status { color: var(--muted); font-size: 14px; }
+.fallback { display: grid; gap: 8px; }
+.fallback img { width: 100%; border: 1px solid var(--line); border-radius: 6px; background:#fff; }
+
+.settings {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px;
+}
+label.field { display: grid; gap: 6px; min-width: 0; }
+.field span {
+  font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+}
+input, textarea {
+  font: inherit; color: var(--ink); background: var(--bg); width: 100%;
+  border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px;
+}
+textarea { resize: vertical; min-height: 64px; }
+
+h2 { font-family: var(--display); font-weight: 700; font-size: 1.4rem; margin: 6px 0 0; letter-spacing: .02em; }
+.days { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.day {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px;
+  display: grid; gap: 10px; min-width: 0; align-content: start;
+}
+.day h3 {
+  margin: 0; font-family: var(--display); font-weight: 700; font-size: 1.25rem; letter-spacing: .03em;
+  display: flex; justify-content: space-between; align-items: baseline;
+}
+.day h3 small { font-family: var(--body); font-weight: 400; font-size: 13px; color: var(--muted); letter-spacing: 0; }
+.tips { color: var(--muted); font-size: 14px; margin: 0; max-width: 70ch; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Fridge Week Board</h1>
+    <p>Fill in the week below. The screen preview shows exactly what your 7.5″ e-paper will display. When it looks right, save the image and send it with the Waveshare NFC app.</p>
+  </header>
+
+  <section class="screen" aria-label="E-paper preview">
+    <canvas id="board" width="800" height="480" role="img" aria-label="Preview of the weekly menu and chore board"></canvas>
+    <div class="spec"><span>800 × 480 · black &amp; white</span><span id="weekLabel"></span></div>
+  </section>
+
+  <div class="actions">
+    <button class="primary" id="saveBtn" type="button">Save image for the screen</button>
+    <button id="clearBtn" type="button">Clear the week</button>
+    <button id="confirmClear" type="button" hidden>Yes, clear everything</button>
+    <span class="status" id="status" role="status"></span>
+  </div>
+  <div class="fallback" id="fallback" hidden>
+    <p class="tips">Press and hold the image below, then choose Save Image.</p>
+    <img id="fallbackImg" alt="Weekly board image, 800 by 480 pixels">
+  </div>
+
+  <section class="settings" aria-label="Week settings">
+    <label class="field"><span>Week starts</span><input type="date" id="start"></label>
+    <label class="field"><span>Board title</span><input type="text" id="title" maxlength="28"></label>
+    <label class="field" style="grid-column: 1 / -1"><span>Bottom note (one line)</span><input type="text" id="note" maxlength="90"></label>
+  </section>
+
+  <h2>Days</h2>
+  <p class="tips">Put one item per line. Long text shrinks to fit, so keep each day to two or three short lines for the most readable screen.</p>
+  <div class="days" id="days"></div>
+</div>
+
+<script>
+(() => {
+  const KEY = "fridge-week-board-v1";
+  const DAY_NAMES = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
+  const MONTHS = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+
+  function nextMonday() {
+    const d = new Date(); d.setHours(12,0,0,0);
+    const add = (8 - d.getDay()) % 7; d.setDate(d.getDate() + add);
+    return iso(d);
+  }
+  function iso(d) { return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
+  function parseISO(s) { const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d, 12); }
+
+  const example = {
+    start: nextMonday(), title: "MENU & CHORES",
+    note: "Trash goes out Tuesday night · Grocery run Saturday morning",
+    days: [
+      { menu: "Chicken tacos\nRice & beans", chores: "Wipe counters\nTake out trash" },
+      { menu: "Spaghetti\nGarlic bread", chores: "Vacuum living room" },
+      { menu: "Sheet-pan salmon\nRoast potatoes", chores: "Clean bathrooms" },
+      { menu: "Leftovers", chores: "Laundry\nChange towels" },
+      { menu: "Homemade pizza", chores: "Mop kitchen" },
+      { menu: "Chili\nCornbread", chores: "Dust shelves\nWater plants" },
+      { menu: "Roast chicken\nGreen beans", chores: "Change bed sheets\nPlan next week" }
+    ]
+  };
+
+  let state;
+  try { state = JSON.parse(localStorage.getItem(KEY)); } catch (e) { state = null; }
+  if (!state || !Array.isArray(state.days) || state.days.length !== 7) state = JSON.parse(JSON.stringify(example));
+
+  const $ = id => document.getElementById(id);
+  const canvas = $("board"), ctx = canvas.getContext("2d");
+  const W = 800, H = 480;
+
+  function persist() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+
+  function weekDates() {
+    const s = parseISO(state.start || nextMonday());
+    return Array.from({length: 7}, (_, i) => { const d = new Date(s); d.setDate(s.getDate() + i); return d; });
+  }
+  function rangeLabel(ds) {
+    const a = ds[0], b = ds[6];
+    return a.getMonth() === b.getMonth()
+      ? `${MONTHS[a.getMonth()]} ${a.getDate()} – ${b.getDate()}`
+      : `${MONTHS[a.getMonth()]} ${a.getDate()} – ${MONTHS[b.getMonth()]} ${b.getDate()}`;
+  }
+
+  // ---------- Day inputs ----------
+  function buildDays() {
+    const box = $("days"); box.innerHTML = "";
+    const ds = weekDates();
+    ds.forEach((d, i) => {
+      const card = document.createElement("div"); card.className = "day";
+      const h = document.createElement("h3");
+      h.textContent = DAY_NAMES[d.getDay()];
+      const sm = document.createElement("small"); sm.textContent = MONTHS[d.getMonth()].charAt(0) + MONTHS[d.getMonth()].slice(1).toLowerCase() + " " + d.getDate();
+      h.appendChild(sm);
+      card.appendChild(h);
+      [["menu","Menu"],["chores","Chores"]].forEach(([k, lab]) => {
+        const l = document.createElement("label"); l.className = "field";
+        const s = document.createElement("span"); s.textContent = lab;
+        const t = document.createElement("textarea"); t.id = `d${i}-${k}`; t.rows = 3;
+        t.value = state.days[i][k] || "";
+        t.addEventListener("input", () => { state.days[i][k] = t.value; changed(); });
+        l.append(s, t); card.appendChild(l);
+      });
+      box.appendChild(card);
+    });
+  }
+
+  // ---------- Canvas drawing ----------
+  const FONT_D = '"Barlow Condensed", "Arial Narrow", sans-serif';
+  const FONT_B = '"Atkinson Hyperlegible", Arial, sans-serif';
+
+  function wrapLines(text, maxW) {
+    const words = text.split(/\s+/).filter(Boolean), out = [];
+    let line = "";
+    for (const w of words) {
+      const test = line ? line + " " + w : w;
+      if (ctx.measureText(test).width <= maxW || !line) {
+        if (!line && ctx.measureText(w).width > maxW) { // break a very long word
+          let part = "";
+          for (const ch of w) { if (ctx.measureText(part + ch).width > maxW && part) { out.push(part); part = ch; } else part += ch; }
+          line = part;
+        } else line = test;
+      } else { out.push(line); line = w; }
+    }
+    if (line) out.push(line);
+    return out;
+  }
+
+  // Lays out items in a box, shrinking the font until everything fits.
+  function drawItems(items, x, y, w, h, opts) {
+    const { weight, max, min, bullet } = opts;
+    const indent = bullet ? 13 : 0;
+    let size = max, layout;
+    for (; size >= min; size--) {
+      ctx.font = `${weight} ${size}px ${FONT_B}`;
+      const lh = Math.round(size * 1.18), gap = Math.round(size * 0.45);
+      layout = []; let used = 0;
+      items.forEach((it, idx) => {
+        const lines = wrapLines(it, w - indent);
+        layout.push({ lines, lh });
+        used += lines.length * lh + (idx ? gap : 0);
+      });
+      layout.gap = gap; layout.lh = lh;
+      if (used <= h) break;
+    }
+    size = Math.max(size, min);
+    ctx.font = `${weight} ${size}px ${FONT_B}`;
+    ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
+    let cy = y;
+    for (let i = 0; i < layout.length; i++) {
+      const it = layout[i];
+      if (i) cy += layout.gap;
+      it.lines.forEach((ln, j) => {
+        if (cy + layout.lh > y + h + 2) return;
+        const base = cy + Math.round(size * 0.92);
+        if (bullet && j === 0) {
+          const s = Math.max(5, Math.round(size * 0.36));
+          ctx.fillRect(x + 1, base - Math.round(size * 0.36) - s / 2, s, s);
+        }
+        ctx.fillText(ln, x + indent, base);
+        cy += layout.lh;
+      });
+    }
+  }
+
+  function draw() {
+    const ds = weekDates();
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "#000"; ctx.strokeStyle = "#000";
+
+    // Header bar
+    ctx.fillRect(0, 0, W, 50);
+    ctx.fillStyle = "#fff";
+    ctx.font = `700 31px ${FONT_D}`; ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
+    ctx.fillText("WEEK OF " + rangeLabel(ds), 16, 36);
+    ctx.textAlign = "right"; ctx.font = `600 24px ${FONT_D}`;
+    ctx.fillText((state.title || "").toUpperCase(), W - 16, 35);
+
+    const X0 = 8, X1 = W - 8, colW = (X1 - X0) / 7;
+    const R = { dayTop: 50, dayBot: 90, band1: 90, band1b: 110, menuBot: 290, band2b: 310, choreBot: 446 };
+
+    // Day headers
+    ctx.fillStyle = "#000"; ctx.textAlign = "center";
+    ds.forEach((d, i) => {
+      const cx = X0 + colW * i + colW / 2;
+      ctx.font = `700 25px ${FONT_D}`;
+      const name = DAY_NAMES[d.getDay()], num = String(d.getDate());
+      const nw = ctx.measureText(name + " ").width;
+      ctx.font = `600 25px ${FONT_D}`;
+      const dw = ctx.measureText(num).width;
+      const left = cx - (nw + dw) / 2;
+      ctx.textAlign = "left";
+      ctx.font = `700 25px ${FONT_D}`; ctx.fillText(name, left, 79);
+      ctx.font = `600 25px ${FONT_D}`; ctx.fillText(num, left + nw, 79);
+    });
+
+    // Section bands
+    function band(y0, y1, label) {
+      ctx.fillStyle = "#000"; ctx.fillRect(0, y0, W, y1 - y0);
+      ctx.fillStyle = "#fff"; ctx.font = `700 16px ${FONT_D}`; ctx.textAlign = "left";
+      ctx.fillText(label, 16, y1 - 5);
+      ctx.fillStyle = "#000";
+    }
+    band(R.band1, R.band1b, "M E N U");
+    band(R.menuBot, R.band2b, "C H O R E S");
+
+    // Column rules
+    ctx.lineWidth = 2;
+    for (let i = 1; i < 7; i++) {
+      const x = Math.round(X0 + colW * i) + 0.5;
+      [[R.dayTop + 8, R.dayBot - 4], [R.band1b, R.menuBot], [R.band2b, R.choreBot]].forEach(([a, b]) => {
+        ctx.beginPath(); ctx.moveTo(x, a); ctx.lineTo(x, b); ctx.stroke();
+      });
+    }
+
+    // Cells
+    const pad = 7;
+    ds.forEach((d, i) => {
+      const x = X0 + colW * i + pad, w = colW - pad * 2;
+      const split = s => (s || "").split("\n").map(t => t.trim()).filter(Boolean);
+      drawItems(split(state.days[i].menu), x, R.band1b + 8, w, R.menuBot - R.band1b - 14, { weight: 700, max: 20, min: 12, bullet: false });
+      drawItems(split(state.days[i].chores), x, R.band2b + 8, w, R.choreBot - R.band2b - 12, { weight: 400, max: 17, min: 11, bullet: true });
+    });
+
+    // Footer note
+    ctx.fillRect(0, R.choreBot, W, 3);
+    if (state.note) {
+      ctx.font = `700 17px ${FONT_B}`; ctx.textAlign = "left";
+      let note = state.note;
+      while (ctx.measureText(note).width > W - 32 && note.length > 3) note = note.slice(0, -2);
+      if (note !== state.note) note = note.trimEnd() + "…";
+      ctx.fillText(note, 16, H - 10);
+    }
+
+    // Snap every pixel to pure black or white for crisp e-ink text
+    const img = ctx.getImageData(0, 0, W, H), p = img.data;
+    for (let k = 0; k < p.length; k += 4) {
+      const v = (p[k] * 0.299 + p[k+1] * 0.587 + p[k+2] * 0.114) < 150 ? 0 : 255;
+      p[k] = p[k+1] = p[k+2] = v; p[k+3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+    $("weekLabel").textContent = "Week of " + rangeLabel(ds).toLowerCase().replace(/\b[a-z]{3}\b/g, m => m[0].toUpperCase() + m.slice(1));
+  }
+
+  let t;
+  function changed() { persist(); clearTimeout(t); t = setTimeout(draw, 60); $("fallback").hidden = true; }
+
+  // ---------- Settings ----------
+  $("start").value = state.start;
+  $("title").value = state.title || "";
+  $("note").value = state.note || "";
+  $("start").addEventListener("change", e => { if (e.target.value) { state.start = e.target.value; buildDays(); changed(); } });
+  $("title").addEventListener("input", e => { state.title = e.target.value; changed(); });
+  $("note").addEventListener("input", e => { state.note = e.target.value; changed(); });
+
+  $("clearBtn").addEventListener("click", () => { $("confirmClear").hidden = false; $("clearBtn").hidden = true; });
+  $("confirmClear").addEventListener("click", () => {
+    state.days = state.days.map(() => ({ menu: "", chores: "" })); state.note = "";
+    $("note").value = ""; buildDays(); changed();
+    $("confirmClear").hidden = true; $("clearBtn").hidden = false;
+    $("status").textContent = "Week cleared.";
+  });
+
+  // ---------- Saving ----------
+  let downloadsP = null;
+  try { downloadsP = window.claude && window.claude.use ? window.claude.use("downloads") : Promise.resolve(null); }
+  catch (e) { downloadsP = Promise.resolve(null); }
+
+  function showFallback() {
+    $("fallbackImg").src = canvas.toDataURL("image/png");
+    $("fallback").hidden = false;
+  }
+
+  $("saveBtn").addEventListener("click", async () => {
+    draw();
+    const status = $("status");
+    const blob = await new Promise(r => canvas.toBlob(r, "image/png"));
+    let dl = null;
+    try { dl = await downloadsP; } catch (e) { dl = null; }
+    if (!dl) {
+      if (blob) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = `fridge-week-${state.start}.png`;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+      showFallback();
+      status.textContent = blob ? "Saved to your downloads. Open it in the Waveshare app to send it to the screen." : "";
+      return;
+    }
+    if (!blob) { showFallback(); status.textContent = ""; return; }
+    try {
+      await dl.save({ filename: `fridge-week-${state.start}.png`, data: blob });
+      status.textContent = "Saved. Open it in the Waveshare app to send it to the screen.";
+    } catch (err) {
+      const c = err && err.code;
+      if (c === "declined") status.textContent = "Not saved.";
+      else if (c === "rate_limited") status.textContent = "A save prompt is already open. Try again in a moment.";
+      else { showFallback(); status.textContent = ""; }
+    }
+  });
+
+  buildDays();
+  draw();
+  if (document.fonts) {
+    Promise.all([
+      document.fonts.load(`700 25px "Barlow Condensed"`),
+      document.fonts.load(`600 25px "Barlow Condensed"`),
+      document.fonts.load(`700 20px "Atkinson Hyperlegible"`),
+      document.fonts.load(`400 17px "Atkinson Hyperlegible"`)
+    ]).then(draw, draw);
+    document.fonts.ready.then(draw);
+  }
+})();
+</script>
+</body>
+</html>
