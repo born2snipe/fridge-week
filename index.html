@@ -156,18 +156,29 @@ h2 { font-family: var(--display); font-weight: 700; font-size: 1.4rem; margin: 6
   function parseISO(s) { const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d, 12); }
   function sundayOf(s) { const d = parseISO(s); d.setDate(d.getDate() - d.getDay()); return iso(d); }
 
+  // Default chores, Sunday first. A cleared week starts from these.
+  const DEFAULT_CHORES = [
+    "Garbage",
+    "Mop floors\nVacuum floors",
+    "Clean bathrooms",
+    "Kitchen deep-wipe",
+    "Clean out fridge",
+    "Laundry prep",
+    ""
+  ];
+
   const example = {
     start: nextSunday(), title: "MENU & CHORES",
-    note: "Trash goes out Tuesday night · Grocery run Saturday morning",
+    note: "Grocery run Saturday morning",
     days: [
-      { menu: "Roast chicken\nGreen beans", chores: "Change bed sheets\nPlan next week" },
-      { menu: "Chicken tacos\nRice & beans", chores: "Wipe counters\nTake out trash" },
-      { menu: "Spaghetti\nGarlic bread", chores: "Vacuum living room" },
-      { menu: "Sheet-pan salmon\nRoast potatoes", chores: "Clean bathrooms" },
-      { menu: "Leftovers", chores: "Laundry\nChange towels" },
-      { menu: "Homemade pizza", chores: "Mop kitchen" },
-      { menu: "Chili\nCornbread", chores: "Dust shelves\nWater plants" }
-    ]
+      { menu: "Roast chicken\nGreen beans" },
+      { menu: "Chicken tacos\nRice & beans" },
+      { menu: "Spaghetti\nGarlic bread" },
+      { menu: "Sheet-pan salmon\nRoast potatoes" },
+      { menu: "Leftovers" },
+      { menu: "Homemade pizza" },
+      { menu: "Chili\nCornbread" }
+    ].map((d, i) => ({ ...d, chores: DEFAULT_CHORES[i] }))
   };
 
   let state;
@@ -390,10 +401,10 @@ h2 { font-family: var(--display); font-weight: 700; font-size: 1.4rem; margin: 6
 
   $("clearBtn").addEventListener("click", () => { $("confirmClear").hidden = false; $("clearBtn").hidden = true; });
   $("confirmClear").addEventListener("click", () => {
-    state.days = state.days.map(() => ({ menu: "", chores: "" })); state.note = "";
+    state.days = state.days.map((_, i) => ({ menu: "", chores: DEFAULT_CHORES[i] })); state.note = "";
     $("note").value = ""; buildDays(); changed();
     $("confirmClear").hidden = true; $("clearBtn").hidden = false;
-    $("status").textContent = "Week cleared.";
+    $("status").textContent = "Week cleared. Chores reset to the defaults.";
   });
 
   // ---------- Saving ----------
